@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Highway Racer</title>
+    <style>
+        /* --- RESET & BASE STYLES --- */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            color: #fff;
+        }
+
+        /* --- CONTAINER & UI --- */
+        .game-container {
+            position: relative;
+            text-align: center;
+        }
+
+        .ui-panel {
+            display: flex;
+            justify-content: space-between;
+            width: 400px;
+            margin-bottom: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .ui-panel span {
+            color: #00ffcc;
+            text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+        }
+
+        /* --- THE HIGHWAY (BOARD) --- */
+        .game-board {
+            position: relative;
+            width: 400px;
+            height: 600px;
+            background: #333;
+            border-left: 10px solid #fff;
+            border-right: 10px solid #fff;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            overflow: hidden;
+            border-radius: 4px;
+        }
+
+        /* Animated Road Striping */
+        .lines {
+            position: absolute;
+            width: 10px;
+            height: 100px;
+            background: #ffdd57;
+            left: 50%;
+            transform: translateX(-50%);
+            top: -150px;
+        }
+
+        /* Active animation class applied via JS when game runs */
+        .game-board.active .lines {
+            animation: drive 1.5s linear infinite;
+        }
+
+        .lines:nth-child(1) { animation-delay: 0s; }
+        .lines:nth-child(2) { animation-delay: 0.3s; }
+        .lines:nth-child(3) { animation-delay: 0.6s; }
+        .lines:nth-child(4) { animation-delay: 0.9s; }
+        .lines:nth-child(5) { animation-delay: 1.2s; }
+
+        @keyframes drive {
+            0% { top: -150px; }
+            100% { top: 750px; }
+        }
+
+        /* --- VEHICLES --- */
+        .car {
+            position: absolute;
+            width: 50px;
+            height: 90px;
+            border-radius: 8px;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.4);
+            transition: transform 0.05s ease;
+        }
+
+        /* Player Car Styling */
+        .player-car {
+            bottom: 30px;
+            left: 175px; 
+            background: #ff4757;
+            border: 2px solid #ff6b81;
+            z-index: 2;
+        }
+
+        .car::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 5px;
+            width: 40px;
+            height: 15px;
+            background: #a4b0be;
+            border-radius: 3px;
+        }
+
+        .car::after {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 5px;
+            background: #fffa65;
+            top: 0;
+            left: 6px;
+            box-shadow: 30px 0 0 #fffa65; 
+            border-radius: 2px;
+        }
+
+        /* Oncoming Enemy Cars */
+        .enemy-car {
+            top: -100px;
+            background: #1e90ff;
+            border: 2px solid #70a1ff;
+            z-index: 1;
+        }
+        
+        .enemy-car::after {
+            top: auto;
+            bottom: 0;
+            background: #ff4757;
+            box-shadow: 30px 0 0 #ff4757; 
+        }
+        .enemy-car::before {
+            top: auto;
+            bottom: 20px;
+        }
+
+        /* --- OVERLAYS --- */
+        .menu-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            backdrop-filter: blur(5px);
+        }
+
+        .menu-screen.hidden {
+            display: none;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: #00ffcc;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px rgba(0,255,204,0.3);
+        }
+
+        p {
+            margin-bottom: 25px;
+            color: #a4b0be;
+            font-size: 0.95rem;
+        }
+
+        .btn {
+            padding: 12px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #0f2027;
+            background: #00ffcc;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0, 255, 204, 0.4);
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(0, 255, 204, 0.6);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <div class="ui-panel">
+            <div>Score: <span id="score-display">0</span></div>
+            <div>Speed: <span id="speed-display">0</span> km/h</div>
+        </div>
+
+        <div class="game-board" id="game-board">
+            <div class="lines"></div>
+            <div class="lines"></div>
+            <div class="lines"></div>
+            <div class="lines"></div>
+            <div class="lines"></div>
+
+            <div class="car player-car" id="player"></div>
+
+            <div class="menu-screen" id="menu-screen">
+                <h1 id="menu-title">HIGHWAY RACER</h1>
+                <p id="menu-sub">Use LEFT / RIGHT Arrows or A / D to dodge traffic</p>
+                <button class="btn" id="start-btn">START RACE</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const gameBoard = document.getElementById('game-board');
+        const player = document.getElementById('player');
+        const scoreDisplay = document.getElementById('score-display');
+        const speedDisplay = document.getElementById('speed-display');
+        const menuScreen = document.getElementById('menu-screen');
+        const menuTitle = document.getElementById('menu-title');
+        const menuSub = document.getElementById('menu-sub');
+        const startBtn = document.getElementById('start-btn');
+
+        let gameActive = false;
+        let score = 0;
+        let speed = 0;
+        let playerX = 175; 
+        
+        // Track keyboard inputs smoothly
+        let keys = {
+            ArrowLeft: false,
+            ArrowRight: false,
+            a: false,
+            d: false,
+            A: false,
+            D: false
+        };
+        
+        let enemies = [];
+        let animationFrameId;
+        let enemySpawnTimer;
+
+        const roadWidth = 400;
+        const carWidth = 50;
+        const maxSpeed = 140;
+
+        // Global listeners for key down and up states
+        window.addEventListener('keydown', (e) => {
+            if (e.key in keys) {
+                keys[e.key] = true;
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key in keys) {
+                keys[e.key] = false;
+            }
+        });
+
+        function resetGame() {
+            // Clear prior enemies from data and DOM
+            enemies.forEach(enemy => enemy.element.remove());
+            enemies = [];
+            
+            score = 0;
+            speed = 60;
+            playerX = 175;
+            player.style.left = `${playerX}px`;
+            player.style.transform = 'rotate(0deg)';
+            
+            scoreDisplay.textContent = score;
+            speedDisplay.textContent = speed;
+            
+            menuScreen.classList.add('hidden');
+            gameBoard.classList.add('active'); // Activates CSS line-scrolling animation
+            gameActive = true;
+
+            // Start loop cycles
+            gameLoop();
+            spawnEnemyLoop();
+        }
+
+        function spawnEnemyLoop() {
+            if (!gameActive) return;
+
+            const randomX = Math.floor(Math.random() * (roadWidth - carWidth - 40)) + 20;
+            const colors = ['#1e90ff', '#ffa500', '#2ed573', '#9b59b6'];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+            const enemyEl = document.createElement('div');
+            enemyEl.classList.add('car', 'enemy-car');
+            enemyEl.style.left = `${randomX}px`;
+            enemyEl.style.backgroundColor = randomColor;
+            gameBoard.appendChild(enemyEl);
+
+            enemies.push({
+                element: enemyEl,
+                y: -100,
+                x: randomX,
+                speed: Math.random() * 2 + 4 
+            });
+
+            let spawnDelay = Math.max(700, 1800 - (score * 40));
+            enemySpawnTimer = setTimeout(spawnEnemyLoop, spawnDelay);
+        }
+
+        function gameLoop() {
+            if (!gameActive) return;
+
+            handlePlayerMovement();
+            handleEnemyMovement();
+
+            if (speed < maxSpeed) {
+                speed += 0.02;
+                speedDisplay.textContent = Math.floor(speed);
+            }
+
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function handlePlayerMovement() {
+            let steering = 0;
+            
+            if (keys.ArrowLeft || keys.a || keys.A) {
+                playerX -= 6;
+                steering = -7; 
+            }
+            if (keys.ArrowRight || keys.d || keys.D) {
+                playerX += 6;
+                steering = 7;  
+            }
+
+            // Boundary constraints
+            if (playerX < 15) playerX = 15;
+            if (playerX > (roadWidth - carWidth - 15)) playerX = roadWidth - carWidth - 15;
+
+            player.style.left = `${playerX}px`;
+            player.style.transform = `rotate(${steering}deg)`;
+        }
+
+        function handleEnemyMovement() {
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let enemy = enemies[i];
+                enemy.y += enemy.speed + (speed / 25);
+                enemy.element.style.top = `${enemy.y}px`;
+
+                // Run hit check
+                if (checkCollision(playerX, 480, enemy.x, enemy.y)) {
+                    endGame();
+                    return;
+                }
+
+                // Despawn passed enemies
+                if (enemy.y > 600) {
+                    enemy.element.remove();
+                    enemies.splice(i, 1);
+                    score++;
+                    scoreDisplay.textContent = score;
+                }
+            }
+        }
+
+        function checkCollision(pX, pY, eX, eY) {
+            // Accurate bounding box dimensions with loose padding tolerances
+            return !(
+                pX + carWidth - 6 < eX ||
+                pX + 6 > eX + carWidth ||
+                pY + 90 - 6 < eY ||
+                pY + 6 > eY + 90
+            );
+        }
+
+        function endGame() {
+            gameActive = false;
+            cancelAnimationFrame(animationFrameId);
+            clearTimeout(enemySpawnTimer);
+            gameBoard.classList.remove('active'); // Stop CSS road lines from scrolling
+
+            menuTitle.textContent = "GAME OVER";
+            menuTitle.style.color = "#ff4757";
+            menuSub.innerHTML = `You crashed! <br>Final Score: <span style="color:#00ffcc">${score}</span>`;
+            startBtn.textContent = "TRY AGAIN";
+            menuScreen.classList.remove('hidden');
+        }
+
+        startBtn.addEventListener('click', resetGame);
+    </script>
+</body>
+</html>
